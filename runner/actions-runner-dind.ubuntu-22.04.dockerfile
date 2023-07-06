@@ -10,6 +10,7 @@ ARG DOCKER_COMPOSE_VERSION=v2.16.0
 ARG DUMB_INIT_VERSION=1.2.5
 ARG RUNNER_USER_UID=1001
 ARG DOCKER_GROUP_GID=121
+ARG K3S_VERSION=v1.27.3+k3s1
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y \
@@ -27,6 +28,7 @@ RUN apt-get update -y \
     sudo \
     unzip \
     zip \
+    git-buildpackage \
     && rm -rf /var/lib/apt/lists/*
 
 # Runner user
@@ -88,6 +90,16 @@ RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
     && ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose \
     && which docker-compose \
     && docker compose version
+
+# Install k3s for deepin cicd cluster settings
+RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+    && if [ "$ARCH" = "arm64" ]; then curl -fLo /usr/bin/k3s https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION}/k3s-arm64 ; fi \
+    && if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "i386" ]; then curl -fLo /usr/bin/k3s https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION}/k3s ; fi \
+    && chmod +x /usr/bin/k3s && ln -sf /usr/bin/k3s /usr/bin/kubectl
+
+# Install deepin dch plugin scripts
+RUN curl -fLo /usr/lib/python3/dist-packages/gbp/scripts/deepin_changelog.py https://raw.githubusercontent.com/deepin-community/deepin-gbp-dch-plugins/master/scripts/deepin_changelog.py \
+&& chmod +x /usr/lib/python3/dist-packages/gbp/scripts/deepin_changelog.py
 
 # We place the scripts in `/usr/bin` so that users who extend this image can
 # override them with scripts of the same name placed in `/usr/local/bin`.
